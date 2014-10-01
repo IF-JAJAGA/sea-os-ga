@@ -2,7 +2,7 @@
 #include "hw.h"
 
 const unsigned int ROUT_NB = 2;
-const unsigned int STACK_SIZE = 10;
+const unsigned int STACK_SIZE = 512;
 
 struct ctx_s ctx_ping;
 struct ctx_s ctx_pong;
@@ -11,7 +11,10 @@ struct ctx_s ctx_init;
 void
 ping()
 {
-	while ( 1 ) {
+	int cpt = 0;
+
+	for (;;) {
+		cpt += 42;
 		switch_to(&ctx_pong);
 	}
 }
@@ -19,7 +22,10 @@ ping()
 void
 pong()
 {
-	while ( 1 ) {
+	int cpt = 1;
+
+	for (;;) {
+		cpt += 2;
 		switch_to(&ctx_ping);
 	}
 
@@ -33,7 +39,7 @@ kmain ( void )
 	// Initialize material
 	init_hw();
 
-	// Initialize both ctx
+	// Initialize all ctx
 	init_ctx(&ctx_ping, ping, STACK_SIZE);
 	init_ctx(&ctx_pong, pong, STACK_SIZE);
 
