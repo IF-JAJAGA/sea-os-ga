@@ -1,0 +1,6 @@
+# Generated files
+*.o
+*.hex
+*.img
+*.elf
+*.list
