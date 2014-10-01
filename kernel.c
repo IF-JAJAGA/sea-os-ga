@@ -1,27 +1,46 @@
-int
-divide(int dividend, int divisor)
+#include "sched.h"
+#include "hw.h"
+
+const unsigned int ROUT_NB = 2;
+const unsigned int STACK_SIZE = 10;
+
+struct ctx_s ctx_ping;
+struct ctx_s ctx_pong;
+struct ctx_s ctx_init;
+
+void
+ping()
 {
-	int result = 0;
-	int remainder = dividend;
-	while (remainder >= divisor) {
-		result++;
-		remainder -= divisor;
+	while ( 1 ) {
+		switch_to(&ctx_pong);
 	}
-	return result;
 }
 
-int
-compute_volume(int rad)
+void
+pong()
 {
-	int rad3 = rad * rad * rad;
-	return divide(4*355*rad3, 3*113);
+	while ( 1 ) {
+		switch_to(&ctx_ping);
+	}
+
 }
 
+//------------------------------------------------------------------------
+
 int
-kmain( void )
+kmain ( void )
 {
-	int radius = 5;
-	int volume;
-	volume = compute_volume(radius);
-	return volume;
+	// Initialize material
+	init_hw();
+
+	// Initialize both ctx
+	init_ctx(&ctx_ping, ping, STACK_SIZE);
+	init_ctx(&ctx_pong, pong, STACK_SIZE);
+
+	current_ctx = &ctx_init;
+
+	switch_to(&ctx_ping);
+
+	return 0;
 }
+
