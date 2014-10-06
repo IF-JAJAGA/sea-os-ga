@@ -1,11 +1,16 @@
 #ifndef SCHED_H
 #define SCHED_H
 
+#include <stdlib.h>
 #include <stdint.h>
 
 typedef void (*func_t) (void);
 
 struct ctx_s {
+	// Stored in a circular doubly linked list
+	struct ctx_s *previous;
+	struct ctx_s *next;
+
 	unsigned int  pid;
 
 	uint8_t      *stack;
@@ -18,13 +23,14 @@ struct ctx_s {
 const unsigned int STACK_WORD_SIZE;
 const unsigned int NUMBER_REGISTERS;
 
-struct ctx_s *current_ctx;
+void
+create_process(func_t f, void *args, unsigned int stack_size);
 
 void
-init_ctx(struct ctx_s* ctx, func_t f, unsigned int stack_size);
+ctx_switch();
 
 void
-switch_to(struct ctx_s * ctx);
+start_sched();
 
 #endif
 

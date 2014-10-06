@@ -1,5 +1,7 @@
-#include "sched.h"
+#include <stdlib.h>
+
 #include "hw.h"
+#include "sched.h"
 
 const unsigned int ROUT_NB = 2;
 const unsigned int STACK_SIZE = 512;
@@ -9,24 +11,24 @@ struct ctx_s ctx_pong;
 struct ctx_s ctx_init;
 
 void
-ping()
+funcA()
 {
-	int cpt = 0;
+	int cptA = 0;
 
 	for (;;) {
-		cpt += 42;
-		switch_to(&ctx_pong);
+		cptA += 42;
+		ctx_switch();
 	}
 }
 
 void
-pong()
+funcB()
 {
-	int cpt = 1;
+	int cptB = 1;
 
 	for (;;) {
-		cpt += 2;
-		switch_to(&ctx_ping);
+		cptB += 2;
+		ctx_switch();
 	}
 
 }
@@ -40,12 +42,11 @@ kmain ( void )
 	init_hw();
 
 	// Initialize all ctx
-	init_ctx(&ctx_ping, ping, STACK_SIZE);
-	init_ctx(&ctx_pong, pong, STACK_SIZE);
+	create_process(funcA, NULL, STACK_SIZE);
+	create_process(funcB, NULL, STACK_SIZE);
 
-	current_ctx = &ctx_init;
-
-	switch_to(&ctx_ping);
+	start_sched();
+	ctx_switch();
 
 	return 0;
 }
