@@ -5,16 +5,80 @@
 const unsigned int STACK_WORD_SIZE = sizeof(void *); // 4 on ARM
 const unsigned int NUMBER_REGISTERS = 13;
 
+// STATIC
+
 // Initialized to NULL (when not allocated)
-static struct ctx_s *current_ctx = NULL;
+static struct pcb_s *current_ctx = NULL;
+static struct pcb_s *idle_ctx    = NULL;
+
+static unsigned int process_count = 0;
+
+static struct pcb_s *
+init_pcb(func_t f, void *args, unsigned int stack_size)
+{
+	struct pcb_s *pcb = (struct pcb_s *) phyAlloc_alloc(sizeof(struct pcb_s));
+
+	pcb->pid = process_count++;
+	pcb->state = STATE_NEW;
+	pcb->stack = (uint8_t *) phyAlloc_alloc(stack_size);
+	pcb->stack_size = stack_size;
+
+	// Positioning the pointer to the bottom of the stack (highest address)
+	pcb->stack += stack_size - STACK_WORD_SIZE;
+	// Leaving space for the registers
+	pcb->stack -= NUMBER_REGISTERS;
+
+	pcb->instruction = f;
+	pcb->args = args;
+
+	return pcb;
+}
+
+static void
+start_current_process()
+{
+	current_ctx->state = STATE_EXECUTING;
+
+	current_ctx->instruction(current_ctx->args);
+
+	// Setting to STATE_ZOMBIE for later deallocation
+	current_ctx->state = STATE_ZOMBIE;
+}
+
+static void
+elect()
+{
+	// Switching to the next element in the circular list
+	current_ctx->state = STATE_IDLE;
+	current_ctx = current_ctx->next;
+
+	if (STATE_ZOMBIE == current_ctx->state)
+	{
+		// Deleting current_ctx from the list
+		current_ctx->previous->next = current_ctx->next;
+		current_ctx->next->previous = current_ctx->previous;
+
+		// Deallocating
+		phyAlloc_free(current_ctx->stack, current_ctx->stack_size);
+		phyAlloc_free(current_ctx, sizeof(current_ctx));
+
+		// Switching to the next element
+		current_ctx = current_ctx->next;
+	}
+	else if (STATE_NEW == current_ctx->state)
+	{
+		start_current_process();
+	}
+
+	current_ctx->state = STATE_EXECUTING;
+}
+
+//------------------------------------------------------------------------
 
 void
 create_process(func_t f, void *args, unsigned int stack_size)
 {
-	static unsigned int process_count = 0;
-
-	struct ctx_s *new_ctx;
-	new_ctx = (struct ctx_s *) phyAlloc_alloc(sizeof(struct ctx_s));
+	struct pcb_s *new_ctx = init_pcb(f, args, stack_size);
 
 	if (!current_ctx)
 	{
@@ -31,16 +95,6 @@ create_process(func_t f, void *args, unsigned int stack_size)
 		current_ctx->previous->next = new_ctx;
 		current_ctx->previous = new_ctx;
 	}
-
-	new_ctx->pid = process_count++;
-	new_ctx->stack = (uint8_t *) phyAlloc_alloc(stack_size);
-
-	// Positioning the pointer to the bottom of the stack (highest address)
-	new_ctx->stack += stack_size - STACK_WORD_SIZE;
-	// Leaving space for the registers
-	new_ctx->stack -= NUMBER_REGISTERS;
-
-	new_ctx->instruction = f;
 }
 
 void
@@ -51,8 +105,8 @@ __attribute__((naked)) ctx_switch()
 	__asm("mov %0, lr" : "= r" (current_ctx->instruction));
 	__asm("mov %0, sp" : "= r" (current_ctx->stack));
 
-	// Switching to the next process in the circular list
-	current_ctx = current_ctx->next;
+	// Electing the next current_ctx
+	elect();
 
 	__asm("mov sp, %0" : : "r" (current_ctx->stack));
 	__asm("mov lr, %0" : : "r" (current_ctx->instruction));
@@ -61,8 +115,13 @@ __attribute__((naked)) ctx_switch()
 }
 
 void
-start_sched()
+start_sched(unsigned int stack_size)
 {
-	current_ctx->instruction();
+	idle_ctx = init_pcb(NULL, NULL, stack_size);
+	idle_ctx->state = STATE_IDLE;
+
+	idle_ctx->next = current_ctx;
+
+	current_ctx = idle_ctx;
 }
 

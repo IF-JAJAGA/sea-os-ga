@@ -4,33 +4,28 @@
 #include "sched.h"
 
 const unsigned int ROUT_NB = 2;
-const unsigned int STACK_SIZE = 512;
-
-struct ctx_s ctx_ping;
-struct ctx_s ctx_pong;
-struct ctx_s ctx_init;
+const unsigned int STACK_SIZE = 1024;
 
 void
-funcA()
+funcA(void *a)
 {
 	int cptA = 0;
 
-	for (;;) {
+	while (cptA < 84) {
 		cptA += 42;
 		ctx_switch();
 	}
 }
 
 void
-funcB()
+funcB(void *a)
 {
 	int cptB = 1;
 
-	for (;;) {
+	while (cptB < 9) {
 		cptB += 2;
 		ctx_switch();
 	}
-
 }
 
 //------------------------------------------------------------------------
@@ -45,7 +40,7 @@ kmain ( void )
 	create_process(funcA, NULL, STACK_SIZE);
 	create_process(funcB, NULL, STACK_SIZE);
 
-	start_sched();
+	start_sched(STACK_SIZE);
 	ctx_switch();
 
 	return 0;

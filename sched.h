@@ -4,19 +4,24 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef void (*func_t) (void);
+typedef void (*func_t) (void *);
 
-struct ctx_s {
+enum state_e {STATE_NEW, STATE_EXECUTING, STATE_IDLE, STATE_ZOMBIE};
+
+struct pcb_s {
 	// Stored in a circular doubly linked list
-	struct ctx_s *previous;
-	struct ctx_s *next;
+	struct pcb_s *previous;
+	struct pcb_s *next;
 
 	unsigned int  pid;
+	enum state_e  state;
 
 	uint8_t      *stack;
+	unsigned int  stack_size;
 
 	// Pointer to the current instruction (lr register)
 	func_t        instruction;
+	void         *args;
 };
 
 // GLOBAL
