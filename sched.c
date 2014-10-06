@@ -1,18 +1,22 @@
 #include "sched.h"
 #include "phyAlloc.h"
 
+// GLOBAL
+const unsigned int STACK_WORD_SIZE = sizeof(void *); // 4 on ARM
+const unsigned int NUMBER_REGISTERS = 13;
+
 void
 init_ctx(struct ctx_s * ctx, func_t f, unsigned int stack_size)
 {
 	static unsigned int process_count = 0;
 
 	ctx->pid = process_count++;
-	ctx->stack = (unsigned int *) phyAlloc_alloc(sizeof(unsigned int) * stack_size);
+	ctx->stack = (uint8_t *) phyAlloc_alloc(stack_size);
 
 	// Positioning the pointer to the bottom of the stack (highest address)
-	ctx->stack += stack_size - 1;
-	// Leaving space for the 13 registers
-	ctx->stack -= 13;
+	ctx->stack += stack_size - STACK_WORD_SIZE;
+	// Leaving space for the registers
+	ctx->stack -= NUMBER_REGISTERS;
 
 	ctx->instruction = f;
 }
