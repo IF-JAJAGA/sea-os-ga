@@ -141,9 +141,17 @@ __attribute__((naked)) ctx_switch()
 	__asm("bx      lr" );
 }
 
+__irq
+void
+ctx_switch_from_irq()
+{
+	
+}
+
 void
 start_sched(unsigned int stack_size)
 {
+	set_tick_and_enable_timer();
 	init_ctx = init_pcb(NULL, NULL, stack_size);
 
 	init_ctx->next = current_ctx;

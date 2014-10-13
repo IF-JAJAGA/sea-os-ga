@@ -37,6 +37,9 @@ void
 ctx_switch();
 
 void
+ctx_switch_from_irq();
+
+void
 start_sched();
 
 #endif
