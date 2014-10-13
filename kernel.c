@@ -4,7 +4,7 @@
 #include "sched.h"
 
 const unsigned int ROUT_NB = 2;
-const unsigned int STACK_SIZE = 1024;
+const unsigned int STACK_SIZE = 65536;
 
 void
 funcA(void *a)
@@ -33,7 +33,7 @@ funcB(void *a)
 int
 kmain ( void )
 {
-	// Initialize material
+	// Initialize hardware
 	init_hw();
 
 	// Initialize all ctx
@@ -41,7 +41,7 @@ kmain ( void )
 	create_process(funcB, NULL, STACK_SIZE);
 
 	start_sched(STACK_SIZE);
-	ctx_switch();
+	end_sched();
 
 	return 0;
 }

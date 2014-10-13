@@ -9,9 +9,22 @@ const unsigned int NUMBER_REGISTERS = 13;
 
 // Initialized to NULL (when not allocated)
 static struct pcb_s *current_ctx = NULL;
-static struct pcb_s *idle_ctx    = NULL;
+static struct pcb_s *init_ctx    = NULL;
 
 static unsigned int process_count = 0;
+
+static void
+start_current_process()
+{
+	current_ctx->state = STATE_EXECUTING;
+
+	current_ctx->entry_point(current_ctx->args);
+
+	// Setting to STATE_ZOMBIE for later deallocation
+	current_ctx->state = STATE_ZOMBIE;
+
+	ctx_switch();
+}
 
 static struct pcb_s *
 init_pcb(func_t f, void *args, unsigned int stack_size)
@@ -26,51 +39,64 @@ init_pcb(func_t f, void *args, unsigned int stack_size)
 	// Positioning the pointer to the bottom of the stack (highest address)
 	pcb->stack += stack_size - STACK_WORD_SIZE;
 	// Leaving space for the registers
-	pcb->stack -= NUMBER_REGISTERS;
+	pcb->stack -= NUMBER_REGISTERS * STACK_WORD_SIZE;
 
-	pcb->instruction = f;
+	pcb->instruction = start_current_process;
+	pcb->entry_point = f;
 	pcb->args = args;
 
 	return pcb;
 }
 
 static void
-start_current_process()
+free_process(struct pcb_s *zombie)
 {
-	current_ctx->state = STATE_EXECUTING;
-
-	current_ctx->instruction(current_ctx->args);
-
-	// Setting to STATE_ZOMBIE for later deallocation
-	current_ctx->state = STATE_ZOMBIE;
+	// Deallocating
+	phyAlloc_free(zombie->stack, zombie->stack_size);
+	phyAlloc_free(zombie, sizeof(zombie));
 }
 
 static void
 elect()
 {
+	struct pcb_s *first = current_ctx;
+
+	if (STATE_EXECUTING == current_ctx->state) {
+		current_ctx->state = STATE_PAUSED;
+	}
 	// Switching to the next element in the circular list
-	current_ctx->state = STATE_IDLE;
 	current_ctx = current_ctx->next;
 
-	if (STATE_ZOMBIE == current_ctx->state)
-	{
-		// Deleting current_ctx from the list
-		current_ctx->previous->next = current_ctx->next;
-		current_ctx->next->previous = current_ctx->previous;
+	if (STATE_ZOMBIE == current_ctx->state) {
+		while (STATE_ZOMBIE == current_ctx->state && current_ctx != first)
+		{
+			// Deleting current_ctx from the list
+			current_ctx->previous->next = current_ctx->next;
+			current_ctx->next->previous = current_ctx->previous;
 
-		// Deallocating
-		phyAlloc_free(current_ctx->stack, current_ctx->stack_size);
-		phyAlloc_free(current_ctx, sizeof(current_ctx));
+			struct pcb_s *next = current_ctx->next;
 
-		// Switching to the next element
-		current_ctx = current_ctx->next;
+			// Deallocating the memory of the ZOMBIE
+			free_process(current_ctx);
+
+			// Switching to the next element
+			current_ctx = next;
+		}
+
+		if (STATE_ZOMBIE == current_ctx->state) {
+			// There are no process that wants to execute anything
+			// TOO MANY ZOMBIES!!
+
+			// We tell init_ctx to free the last zombie
+			init_ctx->next = current_ctx;
+			current_ctx = init_ctx;
+		}
 	}
-	else if (STATE_NEW == current_ctx->state)
-	{
-		start_current_process();
-	}
 
-	current_ctx->state = STATE_EXECUTING;
+	else {
+		// There is at least one process that wants to execute something
+		current_ctx->state = STATE_EXECUTING;
+	}
 }
 
 //------------------------------------------------------------------------
@@ -108,6 +134,7 @@ __attribute__((naked)) ctx_switch()
 	// Electing the next current_ctx
 	elect();
 
+	// Restoring context
 	__asm("mov sp, %0" : : "r" (current_ctx->stack));
 	__asm("mov lr, %0" : : "r" (current_ctx->instruction));
 	__asm("pop {r0-r12}");
@@ -117,11 +144,18 @@ __attribute__((naked)) ctx_switch()
 void
 start_sched(unsigned int stack_size)
 {
-	idle_ctx = init_pcb(NULL, NULL, stack_size);
-	idle_ctx->state = STATE_IDLE;
+	init_ctx = init_pcb(NULL, NULL, stack_size);
 
-	idle_ctx->next = current_ctx;
+	init_ctx->next = current_ctx;
+	current_ctx = init_ctx;
 
-	current_ctx = idle_ctx;
+	ctx_switch();
+	free_process(current_ctx->next);
+}
+
+void
+end_sched()
+{
+	free_process(init_ctx);
 }
 

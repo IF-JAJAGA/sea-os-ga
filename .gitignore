@@ -4,3 +4,6 @@
 *.img
 *.elf
 *.list
+
+# Hidden files
+.*

@@ -6,7 +6,7 @@
 
 typedef void (*func_t) (void *);
 
-enum state_e {STATE_NEW, STATE_EXECUTING, STATE_IDLE, STATE_ZOMBIE};
+enum state_e {STATE_NEW, STATE_EXECUTING, STATE_PAUSED, STATE_ZOMBIE};
 
 struct pcb_s {
 	// Stored in a circular doubly linked list
@@ -19,6 +19,8 @@ struct pcb_s {
 	uint8_t      *stack;
 	unsigned int  stack_size;
 
+	// First instruction to execute (when started)
+	func_t        entry_point;
 	// Pointer to the current instruction (lr register)
 	func_t        instruction;
 	void         *args;
