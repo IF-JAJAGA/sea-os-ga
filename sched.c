@@ -93,11 +93,12 @@ elect()
 			current_ctx = init_ctx;
 		}
 	}
-
+/*
 	else {
 		// There is at least one process that wants to execute something
 		current_ctx->state = STATE_EXECUTING;
 	}
+*/
 }
 
 //------------------------------------------------------------------------
@@ -105,6 +106,7 @@ elect()
 void
 create_process(func_t f, void *args, unsigned int stack_size)
 {
+	DISABLE_IRQ();
 	struct pcb_s *new_ctx = init_pcb(f, args, stack_size);
 
 	if (!current_ctx)
@@ -122,6 +124,7 @@ create_process(func_t f, void *args, unsigned int stack_size)
 		current_ctx->previous->next = new_ctx;
 		current_ctx->previous = new_ctx;
 	}
+	ENABLE_IRQ();
 }
 
 void
@@ -144,10 +147,12 @@ __attribute__((naked)) ctx_switch()
 void
 ctx_switch_from_irq()
 {
+	DISABLE_IRQ();
+
 	__asm("sub lr, lr, #4");
 	__asm("srsdb sp!, #0x13");
 	__asm("cps #0x13");
-	
+
 	// ctx_switch();
 	// Saving current context
 	__asm("push {r0-r12}");
@@ -162,18 +167,24 @@ ctx_switch_from_irq()
 	__asm("mov lr, %0" : : "r" (current_ctx->instruction));
 	__asm("pop {r0-r12}");
 
-	__asm("rfeia sp!");
-
 	set_tick_and_enable_timer();
 	ENABLE_IRQ();
 
-	__asm("bx    lr ");
+	if (STATE_NEW == current_ctx->state)
+	{
+		start_current_process();
+	}
+
+	current_ctx->state = STATE_EXECUTING;
+
+	__asm("rfeia sp!");
 }
 
 void
 free_last()
 {
 	free_process(current_ctx->next);
+	for (;;){}
 }
 
 void
