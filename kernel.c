@@ -11,7 +11,7 @@ funcA(void *a)
 {
 	int cptA = 0;
 
-	while (cptA < 84) {
+	for (;;) {
 		cptA += 42;
 	}
 }
@@ -21,7 +21,7 @@ funcB(void *a)
 {
 	int cptB = 1;
 
-	while (cptB < 9) {
+	for (;;) {
 		cptB += 2;
 	}
 }
@@ -39,7 +39,7 @@ kmain ( void )
 	create_process(funcB, NULL, STACK_SIZE);
 
 	start_sched(STACK_SIZE);
-	end_sched();
+	for (;;) {}
 
 	return 0;
 }

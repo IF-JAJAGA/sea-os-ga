@@ -139,35 +139,53 @@ __attribute__((naked)) ctx_switch()
 	__asm("mov sp, %0" : : "r" (current_ctx->stack));
 	__asm("mov lr, %0" : : "r" (current_ctx->instruction));
 	__asm("pop {r0-r12}");
-	__asm("bx      lr" );
 }
 
 void
-__attribute__((naked)) ctx_switch_from_irq()
+ctx_switch_from_irq()
 {
 	__asm("sub lr, lr, #4");
 	__asm("srsdb sp!, #0x13");
 	__asm("cps #0x13");
 	
-	// Des trucs...
-	ctx_switch();
+	// ctx_switch();
+	// Saving current context
+	__asm("push {r0-r12}");
+	__asm("mov %0, lr" : "= r" (current_ctx->instruction));
+	__asm("mov %0, sp" : "= r" (current_ctx->stack));
+
+	// Electing the next current_ctx
+	elect();
+
+	// Restoring context
+	__asm("mov sp, %0" : : "r" (current_ctx->stack));
+	__asm("mov lr, %0" : : "r" (current_ctx->instruction));
+	__asm("pop {r0-r12}");
 
 	__asm("rfeia sp!");
+
 	set_tick_and_enable_timer();
+	ENABLE_IRQ();
+
+	__asm("bx    lr ");
+}
+
+void
+free_last()
+{
+	free_process(current_ctx->next);
 }
 
 void
 start_sched(unsigned int stack_size)
 {
-	init_ctx = init_pcb(NULL, NULL, stack_size);
+	init_ctx = init_pcb(free_last, NULL, stack_size);
 
 	init_ctx->next = current_ctx;
 	current_ctx = init_ctx;
 
 	set_tick_and_enable_timer();
 	ENABLE_IRQ();
-
-	free_process(current_ctx->next);
 }
 
 void
