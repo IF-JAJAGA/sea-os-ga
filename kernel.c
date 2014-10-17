@@ -13,7 +13,6 @@ funcA(void *a)
 
 	while (cptA < 84) {
 		cptA += 42;
-		ctx_switch();
 	}
 }
 
@@ -24,7 +23,6 @@ funcB(void *a)
 
 	while (cptB < 9) {
 		cptB += 2;
-		ctx_switch();
 	}
 }
 

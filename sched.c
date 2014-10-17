@@ -1,4 +1,5 @@
 #include "sched.h"
+#include "hw.h"
 #include "phyAlloc.h"
 
 // GLOBAL
@@ -141,23 +142,31 @@ __attribute__((naked)) ctx_switch()
 	__asm("bx      lr" );
 }
 
-__irq
 void
-ctx_switch_from_irq()
+__attribute__((naked)) ctx_switch_from_irq()
 {
+	__asm("sub lr, lr, #4");
+	__asm("srsdb sp!, #0x13");
+	__asm("cps #0x13");
 	
+	// Des trucs...
+	ctx_switch();
+
+	__asm("rfeia sp!");
+	set_tick_and_enable_timer();
 }
 
 void
 start_sched(unsigned int stack_size)
 {
-	set_tick_and_enable_timer();
 	init_ctx = init_pcb(NULL, NULL, stack_size);
 
 	init_ctx->next = current_ctx;
 	current_ctx = init_ctx;
 
-	ctx_switch();
+	set_tick_and_enable_timer();
+	ENABLE_IRQ();
+
 	free_process(current_ctx->next);
 }
 

@@ -42,5 +42,8 @@ ctx_switch_from_irq();
 void
 start_sched();
 
+void
+end_sched();
+
 #endif
 
