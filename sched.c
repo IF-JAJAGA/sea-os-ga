@@ -20,11 +20,6 @@ start_current_process()
 	current_ctx->state = STATE_EXECUTING;
 
 	current_ctx->entry_point(current_ctx->args);
-
-	// Setting to STATE_ZOMBIE for later deallocation
-	current_ctx->state = STATE_ZOMBIE;
-
-	ctx_switch();
 }
 
 static struct pcb_s *
@@ -49,9 +44,11 @@ init_pcb(func_t f, void *args, unsigned int stack_size)
 	return pcb;
 }
 
+// Be careful to call ENABLE_IRQ after this function
 static void
 free_process(struct pcb_s *zombie)
 {
+	DISABLE_IRQ();
 	// Deallocating
 	phyAlloc_free(zombie->stack, zombie->stack_size);
 	phyAlloc_free(zombie, sizeof(zombie));
@@ -93,12 +90,6 @@ elect()
 			current_ctx = init_ctx;
 		}
 	}
-/*
-	else {
-		// There is at least one process that wants to execute something
-		current_ctx->state = STATE_EXECUTING;
-	}
-*/
 }
 
 //------------------------------------------------------------------------
@@ -147,11 +138,18 @@ __attribute__((naked)) ctx_switch()
 void
 ctx_switch_from_irq()
 {
-	DISABLE_IRQ();
-
 	__asm("sub lr, lr, #4");
 	__asm("srsdb sp!, #0x13");
 	__asm("cps #0x13");
+
+	DISABLE_IRQ();
+
+	static int nb_of_interrupts = 0;
+
+	if(nb_of_interrupts == 2 || nb_of_interrupts == 4) {
+		current_ctx->state = STATE_ZOMBIE;
+	}
+	nb_of_interrupts++;
 
 	// ctx_switch();
 	// Saving current context
@@ -184,6 +182,8 @@ void
 free_last()
 {
 	free_process(current_ctx->next);
+	current_ctx->next = current_ctx;
+	ENABLE_IRQ();
 	for (;;){}
 }
 
