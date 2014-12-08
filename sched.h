@@ -16,8 +16,10 @@ struct pcb_s {
 	unsigned int  pid;
 	enum state_e  state;
 
-	uint8_t      *stack;
-	unsigned int  stack_size;
+	uint32_t      *stack;
+
+	// The stack size (in words)
+	unsigned int  stack_size_words;
 
 	// First instruction to execute (when started)
 	func_t        entry_point;
@@ -27,11 +29,11 @@ struct pcb_s {
 };
 
 // GLOBAL
-const unsigned int STACK_WORD_SIZE;
+const unsigned int WORD_SIZE;
 const unsigned int NUMBER_REGISTERS;
 
 void
-create_process(func_t f, void *args, unsigned int stack_size);
+create_process(func_t f, void *args, unsigned int stack_size_words);
 
 void
 ctx_switch();

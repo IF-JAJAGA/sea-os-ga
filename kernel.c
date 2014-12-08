@@ -3,27 +3,37 @@
 #include "hw.h"
 #include "sched.h"
 
-const unsigned int ROUT_NB = 2;
-const unsigned int STACK_SIZE = 65536;
+// Stack size in words (divide by WORD_SIZE if necessary)
+const unsigned int STACK_SIZE_WORDS = 16384; // 4kB
+
+struct done_s {
+	int max;
+	int curr;
+};
 
 void
 funcA(void *a)
 {
-	int cptA = 0;
+	struct done_s *d = (struct done_s *) a;
+	long cptA = 1;
 
-	for (;;) {
-		cptA += 42;
+	for (;cptA > 0;) {
+		cptA += 32;
 	}
+	cptA = 0;
+	d->curr++;
 }
 
 void
 funcB(void *a)
 {
+	struct done_s *d = (struct done_s *) a;
 	int cptB = 1;
 
-	for (;;) {
+	for (;cptB < 2147483647;) {
 		cptB += 2;
 	}
+	d->curr++;
 }
 
 //------------------------------------------------------------------------
@@ -34,12 +44,19 @@ kmain ( void )
 	// Initialize hardware
 	init_hw();
 
-	// Initialize all ctx
-	create_process(funcA, NULL, STACK_SIZE);
-	create_process(funcB, NULL, STACK_SIZE);
+	struct done_s done;
+	done.max = 2;
+	done.curr = 0;
 
-	start_sched(STACK_SIZE);
-	for (;;) {}
+	// Initialize all ctx
+	create_process(funcA, &done, STACK_SIZE_WORDS);
+	create_process(funcB, &done, STACK_SIZE_WORDS);
+
+	start_sched(STACK_SIZE_WORDS);
+
+	while (done.curr < done.max) {}
+
+	char a[] = "Youpi!!";
 
 	return 0;
 }
